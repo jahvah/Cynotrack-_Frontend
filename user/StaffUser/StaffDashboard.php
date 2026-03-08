@@ -57,6 +57,10 @@ if ($_SESSION['role'] !== 'staff') {
         Manage Appointments
     </a>
 
+    <a href="StaffSpecimenRequestCrud/StaffSpecimenRequestRecipientIndex.php" class="dashboard-btn">
+        Manage Specimen Requests
+    </a>
+
 </div>
 
 <?php include('../../includes/footer.php'); ?>
