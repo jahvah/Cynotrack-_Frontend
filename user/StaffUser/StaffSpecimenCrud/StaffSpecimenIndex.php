@@ -150,15 +150,6 @@ th { background: #007bff; color: white; }
                 // Apply business rules
                 $display_status = $row['status'];
                 $disable_actions = false;
-
-                if ((int)$row['quantity'] === 0) {
-                    $display_status = 'used';
-                    $disable_actions = true;
-                }
-                if ($row['status'] === 'disposed') {
-                    $disable_actions = true;
-                }
-
                 // Badge class
                 $class = 'yellow';
                 if ($display_status == 'approved' || $display_status == 'stored') $class = 'green';

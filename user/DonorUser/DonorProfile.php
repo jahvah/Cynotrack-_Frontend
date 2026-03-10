@@ -118,6 +118,7 @@ button[type="submit"]:hover {
          </a>
         </p>
     <?php endif; ?>
+    <button type="submit">Save Profile</button>
 </form>
 
 <?php include("../../includes/footer.php"); ?>

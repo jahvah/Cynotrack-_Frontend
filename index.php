@@ -1,8 +1,4 @@
-<?php
-include('./includes/config.php');
-include('./includes/header.php');
 
-?>
 
 <?php
 $password = "12345";

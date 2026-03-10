@@ -1,7 +1,6 @@
 <?php
 session_start();
 include("../includes/config.php");
-include("../includes/header.php");
 include("../includes/alert.php");
 
 // Fetch roles for dropdown

@@ -65,7 +65,7 @@ button { padding: 10px 15px; background: green; color: white; border: none; curs
 <a href="../StaffSpecimenRequestIndex.php" class="back-btn">← Back to Request Dashboard</a>
 <h2>Create Self Storage Specimen Request</h2>
 
-<form action="StaffSpecimenRequestSelfStorageStore.php" method="POST" autocomplete="off">
+<form action="StaffSpecimenRequestSelfStorageStore.php" method="POST" autocomplete="off" enctype="multipart/form-data">        <input type="hidden" name="action" value="create_specimen_request">
 <input type="hidden" name="action" value="create_specimen_request">
 
 <!-- Self Storage User Search -->
@@ -85,6 +85,9 @@ button { padding: 10px 15px; background: green; color: white; border: none; curs
 <!-- Quantity -->
 <label>Requested Quantity</label>
 <input type="number" name="requested_quantity" min="1" required>
+
+<label>Upload Receipt (optional)</label>
+<input type="file" name="receipt_image" accept="image/*"required>
 
 <button type="submit">Create Request</button>
 </form>

@@ -68,8 +68,8 @@ button { padding: 10px 15px; background: green; color: white; border: none; curs
     <a href="../StaffSpecimenRequestIndex.php" class="back-btn">← Back to Request Dashboard</a>
     <h2>Create Specimen Request</h2>
 
-    <form action="StaffSpecimenRequestRecipientStore.php" method="POST" autocomplete="off">
-        <input type="hidden" name="action" value="create_specimen_request">
+<form action="StaffSpecimenRequestRecipientStore.php" method="POST" autocomplete="off" enctype="multipart/form-data">
+<input type="hidden" name="action" value="create_specimen_request">
 
         <!-- Recipient Search -->
         <label>Search Recipient</label>
@@ -96,6 +96,10 @@ button { padding: 10px 15px; background: green; color: white; border: none; curs
         <!-- Quantity -->
         <label>Requested Quantity</label>
         <input type="number" name="requested_quantity" min="1" required>
+
+         <!-- Receipt Upload -->
+        <label>Upload Receipt (optional)</label>
+        <input type="file" name="receipt_image" accept="image/*" required>
 
         <button type="submit">Create Request</button>
     </form>
