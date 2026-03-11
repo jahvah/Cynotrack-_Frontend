@@ -9,6 +9,6 @@ header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 header("Expires: 0");
 
-header("Location: login.php");
+header("Location: ../index.php");
 exit();
 ?>
