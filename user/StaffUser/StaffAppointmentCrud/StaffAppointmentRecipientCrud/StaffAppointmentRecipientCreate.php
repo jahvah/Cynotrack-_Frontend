@@ -9,17 +9,17 @@ if (!isset($_SESSION['account_id']) || $_SESSION['role'] !== 'staff') {
     exit();
 }
 
-// Fetch donors for live search
-$donor_result = mysqli_query($conn, "
-    SELECT d.donor_id, d.first_name, d.last_name, d.profile_image, d.blood_type
-    FROM donors_users d
-    JOIN accounts a ON d.account_id = a.account_id
+// Fetch recipients for live search (active accounts only)
+$recipient_result = mysqli_query($conn, "
+    SELECT r.recipient_id, r.first_name, r.last_name, r.profile_image, a.email
+    FROM recipients_users r
+    JOIN accounts a ON r.account_id = a.account_id
     WHERE a.status = 'active'
-    ORDER BY d.first_name ASC
+    ORDER BY r.first_name ASC
 ");
-$donors = [];
-while ($row = mysqli_fetch_assoc($donor_result)) {
-    $donors[] = $row;
+$recipients = [];
+while ($row = mysqli_fetch_assoc($recipient_result)) {
+    $recipients[] = $row;
 }
 ?>
 
@@ -49,7 +49,7 @@ while ($row = mysqli_fetch_assoc($donor_result)) {
     box-shadow: 0 8px 24px rgba(21,128,61,.12);
   }
   .search-item {
-    display: flex; align-items: center; gap-3; gap: 10px;
+    display: flex; align-items: center; gap: 10px;
     padding: 10px 14px;
     cursor: pointer;
     border-bottom: 1px solid #f0fdf4;
@@ -66,10 +66,10 @@ while ($row = mysqli_fetch_assoc($donor_result)) {
     flex-shrink: 0;
   }
   .search-item .item-name { font-weight: 600; color: #1a2e1a; }
-  .search-item .item-blood { font-size: .7rem; color: #16a34a; font-weight: 700; }
+  .search-item .item-email { font-size: .7rem; color: #6b7280; }
 
-  /* Selected donor pill */
-  #selected-donor-pill {
+  /* Selected recipient pill */
+  #selected-recipient-pill {
     display: none;
     align-items: center; gap: 10px;
     padding: 10px 14px;
@@ -78,13 +78,13 @@ while ($row = mysqli_fetch_assoc($donor_result)) {
     border-radius: 12px;
     margin-top: 8px;
   }
-  #selected-donor-pill .pill-name { font-size: .875rem; font-weight: 700; color: #15803d; }
-  #selected-donor-pill button {
+  #selected-recipient-pill .pill-name { font-size: .875rem; font-weight: 700; color: #15803d; }
+  #selected-recipient-pill button {
     margin-left: auto; background: none; border: none;
     color: #dc2626; cursor: pointer; font-size: .8rem; font-weight: 700;
     padding: 2px 6px; border-radius: 6px;
   }
-  #selected-donor-pill button:hover { background: #fee2e2; }
+  #selected-recipient-pill button:hover { background: #fee2e2; }
 
   /* Form inputs */
   .form-input {
@@ -94,17 +94,13 @@ while ($row = mysqli_fetch_assoc($donor_result)) {
     border-radius: 12px;
     font-family: 'DM Sans', sans-serif;
     font-size: .9rem; color: #1a2e1a;
-    background: white;
-    outline: none;
+    background: white; outline: none;
     transition: border-color .2s, box-shadow .2s;
   }
   .form-input:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.1); }
   .form-input::placeholder { color: #9ca3af; }
 
-  /* Validation hint */
-  .hint-row {
-    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;
-  }
+  .hint-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
   .hint {
     font-size: .7rem; font-weight: 700; color: #16a34a;
     background: #f0fdf4; border: 1px solid #bbf7d0;
@@ -149,8 +145,8 @@ while ($row = mysqli_fetch_assoc($donor_result)) {
                     background-size: 38px 38px;"></div>
         <div class="relative">
           <p class="text-green-200 text-[10px] font-bold uppercase tracking-widest mb-1">Staff Portal</p>
-          <h2 class="display-font text-white text-2xl">Add Donor Appointment</h2>
-          <p class="text-green-200/80 text-sm mt-1">Schedule a new appointment for a donor.</p>
+          <h2 class="display-font text-white text-2xl">Add Recipient Appointment</h2>
+          <p class="text-green-200/80 text-sm mt-1">Schedule a new appointment for a recipient.</p>
         </div>
       </div>
 
@@ -171,26 +167,26 @@ while ($row = mysqli_fetch_assoc($donor_result)) {
           </div>
         <?php endif; ?>
 
-        <form action="StaffAppointmentDonorStore.php" method="POST" autocomplete="off" class="space-y-7">
-          <input type="hidden" name="action" value="create_donor_appointment">
+        <form action="StaffAppointmentRecipientStore.php" method="POST" autocomplete="off" class="space-y-7">
+          <input type="hidden" name="action" value="create_recipient_appointment">
 
-          <!-- Donor Search -->
+          <!-- Recipient Search -->
           <div class="fade-up d2">
             <h3 class="text-[10px] font-black uppercase tracking-widest text-green-800 mb-3 flex items-center gap-2">
-              <span class="w-2 h-2 bg-green-500 rounded-full"></span> Select Donor
+              <span class="w-2 h-2 bg-green-500 rounded-full"></span> Select Recipient
             </h3>
             <div class="search-wrap">
-              <input type="text" id="donor_search_input" class="form-input"
-                     placeholder="Type donor name to search…">
-              <input type="hidden" name="donor_id" id="donor_id_hidden">
+              <input type="text" id="recipient_search_input" class="form-input"
+                     placeholder="Type recipient name to search…">
+              <input type="hidden" name="recipient_id" id="recipient_id_hidden">
               <div id="search-results"></div>
             </div>
 
-            <!-- Selected donor confirmation pill -->
-            <div id="selected-donor-pill">
+            <!-- Selected recipient pill -->
+            <div id="selected-recipient-pill">
               <div class="initials" id="pill-initials"></div>
               <span class="pill-name" id="pill-name"></span>
-              <button type="button" onclick="clearDonor()">✕ Clear</button>
+              <button type="button" onclick="clearRecipient()">✕ Clear</button>
             </div>
           </div>
 
@@ -212,7 +208,7 @@ while ($row = mysqli_fetch_assoc($donor_result)) {
                 <label class="block text-[10px] font-bold uppercase tracking-wider text-green-700 mb-2">Appointment Type</label>
                 <select name="appointment_type" required class="form-input cursor-pointer">
                   <option value="consultation">Consultation</option>
-                  <option value="donation">Donation</option>
+                  <option value="release">Release</option>
                 </select>
               </div>
             </div>
@@ -245,12 +241,12 @@ while ($row = mysqli_fetch_assoc($donor_result)) {
 </div>
 
 <script>
-const donors = <?= json_encode($donors); ?>;
+const recipients = <?= json_encode($recipients); ?>;
 
-const searchInput  = document.getElementById('donor_search_input');
+const searchInput  = document.getElementById('recipient_search_input');
 const resultsDiv   = document.getElementById('search-results');
-const hiddenInput  = document.getElementById('donor_id_hidden');
-const pillEl       = document.getElementById('selected-donor-pill');
+const hiddenInput  = document.getElementById('recipient_id_hidden');
+const pillEl       = document.getElementById('selected-recipient-pill');
 const pillName     = document.getElementById('pill-name');
 const pillInitials = document.getElementById('pill-initials');
 
@@ -264,39 +260,39 @@ searchInput.addEventListener('input', function () {
 
   if (q.length < 1) { resultsDiv.style.display = 'none'; return; }
 
-  const matches = donors.filter(d =>
-    (d.first_name + ' ' + d.last_name).toLowerCase().includes(q)
+  const matches = recipients.filter(r =>
+    (r.first_name + ' ' + r.last_name).toLowerCase().includes(q)
   );
 
   if (!matches.length) { resultsDiv.style.display = 'none'; return; }
 
   resultsDiv.style.display = 'block';
-  matches.slice(0, 10).forEach(d => {
+  matches.slice(0, 10).forEach(r => {
     const item = document.createElement('div');
     item.className = 'search-item';
     item.innerHTML = `
-      <div class="initials">${getInitials(d.first_name, d.last_name)}</div>
+      <div class="initials">${getInitials(r.first_name, r.last_name)}</div>
       <div>
-        <div class="item-name">${d.first_name} ${d.last_name}</div>
-        ${d.blood_type ? `<div class="item-blood">${d.blood_type}</div>` : ''}
+        <div class="item-name">${r.first_name} ${r.last_name}</div>
+        ${r.email ? `<div class="item-email">${r.email}</div>` : ''}
       </div>`;
-    item.onclick = () => selectDonor(d);
+    item.onclick = () => selectRecipient(r);
     resultsDiv.appendChild(item);
   });
 });
 
-function selectDonor(d) {
-  searchInput.value      = d.first_name + ' ' + d.last_name;
-  hiddenInput.value      = d.donor_id;
+function selectRecipient(r) {
+  searchInput.value        = r.first_name + ' ' + r.last_name;
+  hiddenInput.value        = r.recipient_id;
   resultsDiv.style.display = 'none';
-  pillInitials.textContent = getInitials(d.first_name, d.last_name);
-  pillName.textContent     = d.first_name + ' ' + d.last_name;
+  pillInitials.textContent = getInitials(r.first_name, r.last_name);
+  pillName.textContent     = r.first_name + ' ' + r.last_name;
   pillEl.style.display     = 'flex';
   searchInput.readOnly     = true;
   searchInput.style.background = '#f0fdf4';
 }
 
-function clearDonor() {
+function clearRecipient() {
   searchInput.value        = '';
   hiddenInput.value        = '';
   pillEl.style.display     = 'none';
