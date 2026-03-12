@@ -3,7 +3,6 @@ session_start();
 include('../../../includes/config.php');
 include('../../../includes/header.php');
 
-// STAFF access only
 if (!isset($_SESSION['account_id']) || $_SESSION['role'] !== 'staff') {
     header("Location: ../../../unauthorized.php");
     exit();
@@ -37,7 +36,7 @@ $recipient_query = "SELECT
     ORDER BY a.appointment_id DESC";
 $recipient_result = mysqli_query($conn, $recipient_query);
 
-/* ================= SELF STORAGE APPOINTMENTS ================= */
+/* ================= STORAGE APPOINTMENTS ================= */
 $storage_query = "SELECT 
         a.appointment_id,
         a.appointment_date,
@@ -50,267 +49,386 @@ $storage_query = "SELECT
     WHERE a.user_type = 'storage'
     ORDER BY a.appointment_id DESC";
 $storage_result = mysqli_query($conn, $storage_query);
+
+$totalDonor = mysqli_num_rows($donor_result);
+$totalRecipient = mysqli_num_rows($recipient_result);
+$totalStorage = mysqli_num_rows($storage_result);
 ?>
 
 <style>
-.container { padding: 30px; }
 
-.top-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Nunito:wght@300;400;600;700&display=swap');
+
+.staff-wrap{
+font-family:'Nunito',sans-serif;
+background:linear-gradient(180deg,#f0fdf4 0%,#ffffff 100%);
+min-height:100vh;
 }
 
-.create-btn {
-    padding: 10px 18px;
-    background: green;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
+.display-font{
+font-family:'Playfair Display',serif;
 }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-    font-size: 13px;
+/* HERO */
+
+.hero{
+background:linear-gradient(135deg,#052e16,#166534);
+padding:40px;
+color:white;
 }
 
-th, td {
-    padding: 8px;
-    border: 1px solid #ccc;
-    text-align: center;
+.stat-card{
+background:rgba(255,255,255,.15);
+border-radius:14px;
+padding:16px;
+text-align:center;
 }
 
-th {
-    background: #007bff;
-    color: white;
-}
-.message { padding: 12px; margin-bottom: 15px; border-radius: 5px; }
-.error { background:#f8d7da; color:#721c24; }
-.success { background:#d4edda; color:#155724; }
-.action-btn {
-    padding: 6px 10px;
-    text-decoration: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 12px;
+/* TABLE */
+
+.card{
+background:white;
+border-radius:16px;
+border:1px solid #dcfce7;
+box-shadow:0 10px 25px rgba(0,0,0,.04);
+overflow:hidden;
 }
 
-.edit-btn { background: orange; }
-.delete-btn { background: red; }
-
-.badge {
-    padding: 4px 8px;
-    border-radius: 4px;
-    color: white;
-    font-size: 12px;
+.table{
+width:100%;
+border-collapse:collapse;
 }
 
-.green { background: green; }
-.red { background: red; }
-.yellow { background: orange; }
-
-.section-divider {
-    margin-top: 40px;
-    border-top: 2px solid #eee;
-    padding-top: 20px;
+.table th{
+background:#f0fdf4;
+font-size:12px;
+text-transform:uppercase;
+letter-spacing:.08em;
+padding:12px;
 }
 
-.back-btn {
-    padding: 10px 18px;
-    background: #555;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    margin-right: 10px;
+.table td{
+padding:12px;
+border-top:1px solid #f0fdf4;
+font-size:14px;
 }
+
+.badge{
+padding:4px 10px;
+border-radius:8px;
+font-size:11px;
+font-weight:700;
+}
+
+.green{background:#dcfce7;color:#166534;}
+.red{background:#fee2e2;color:#991b1b;}
+.yellow{background:#fef9c3;color:#92400e;}
+
+.btn{
+padding:6px 12px;
+border-radius:8px;
+font-size:12px;
+font-weight:700;
+text-decoration:none;
+}
+
+.btn-edit{background:#f59e0b;color:white;}
+.btn-delete{background:#ef4444;color:white;}
+.btn-add{background:#16a34a;color:white;padding:8px 14px;}
+
+.section{
+margin-top:40px;
+}
+
 </style>
 
-<div class="container">
 
-    <?php if (isset($_SESSION['error'])): ?>
-        <div class="message error"><?= $_SESSION['error']; ?></div>
-        <?php unset($_SESSION['error']); ?>
-    <?php endif; ?>
+<div class="staff-wrap">
 
-    <?php if (isset($_SESSION['success'])): ?>
-        <div class="message success"><?= $_SESSION['success']; ?></div>
-        <?php unset($_SESSION['success']); ?>
-    <?php endif; ?>
+<!-- HERO -->
+<div class="hero">
 
-    <div class="top-bar">
-        <h2>Appointment Management</h2>
-        <a href="../StaffDashboard.php" class="back-btn">← Back to Dashboard</a>
-    </div>
+<div class="max-w-6xl mx-auto">
 
-    <!-- ================= DONOR APPOINTMENTS ================= -->
-    <div class="top-bar" style="margin-top: 20px;">
-        <h3>Donor Appointments</h3>
-        <a href="StaffAppointmentDonorCrud/StaffAppointmentDonorCreate.php" class="create-btn">
-            + Add Donor Appointment
-        </a>
-    </div>
+<h1 class="display-font text-3xl mb-6">
+Appointment Management
+</h1>
 
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>Donor Name</th>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
+<div class="grid grid-cols-3 gap-4">
 
-        <?php if ($donor_result && mysqli_num_rows($donor_result) > 0): ?>
-            <?php while ($row = mysqli_fetch_assoc($donor_result)): ?>
-                <tr>
-                    <td><?= $row['appointment_id']; ?></td>
-                    <td><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']); ?></td>
-                    <td><?= date("M d, Y h:i A", strtotime($row['appointment_date'])); ?></td>
-                    <td><?= ucfirst($row['type']); ?></td>
-                    <td>
-                        <?php
-                        $status = $row['status'];
-                        $class = ($status == 'completed') ? 'green' : (($status == 'cancelled') ? 'red' : 'yellow');
-                        echo "<span class='badge $class'>" . ucfirst($status) . "</span>";
-                        ?>
-                    </td>
-                    <td>
-    <?php if ($status === 'scheduled'): ?>
-        <a href="StaffAppointmentDonorCrud/StaffAppointmentDonorUpdate.php?id=<?= $row['appointment_id']; ?>" 
-           class="action-btn edit-btn">Edit</a>
+<div class="stat-card">
+<div class="text-3xl font-bold"><?= $totalDonor ?></div>
+<div class="text-xs uppercase">Donor Appointments</div>
+</div>
 
-        <a href="StaffAppointmentDonorCrud/StaffAppointmentDonorDelete.php?id=<?= $row['appointment_id']; ?>" 
-           class="action-btn delete-btn"
-           onclick="return confirm('Are you sure you want to delete this appointment?');">
-           Delete
-        </a>
-    <?php else: ?>
-        <!-- No actions for cancelled or completed appointments -->
-        -
-    <?php endif; ?>
+<div class="stat-card">
+<div class="text-3xl font-bold"><?= $totalRecipient ?></div>
+<div class="text-xs uppercase">Recipient Appointments</div>
+</div>
+
+<div class="stat-card">
+<div class="text-3xl font-bold"><?= $totalStorage ?></div>
+<div class="text-xs uppercase">Storage Appointments</div>
+</div>
+
+</div>
+
+</div>
+</div>
+
+
+<div class="max-w-6xl mx-auto px-4 py-10">
+
+
+<!-- DONOR -->
+<div class="section">
+
+<div class="flex justify-between items-center mb-4">
+<h2 class="display-font text-xl text-green-900">Donor Appointments</h2>
+
+<a href="StaffAppointmentDonorCrud/StaffAppointmentDonorCreate.php"
+class="btn-add">
++ Add Appointment
+</a>
+</div>
+
+<div class="card">
+<table class="table">
+
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Date</th>
+<th>Type</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+
+<?php while($row=mysqli_fetch_assoc($donor_result)): ?>
+
+<tr>
+
+<td><?= $row['appointment_id'] ?></td>
+
+<td><?= htmlspecialchars($row['first_name'].' '.$row['last_name']) ?></td>
+
+<td><?= date("M d Y h:i A",strtotime($row['appointment_date'])) ?></td>
+
+<td><?= ucfirst($row['type']) ?></td>
+
+<td>
+
+<?php
+$status=$row['status'];
+$class=$status=='completed'?'green':($status=='cancelled'?'red':'yellow');
+?>
+
+<span class="badge <?= $class ?>">
+<?= ucfirst($status) ?>
+</span>
+
 </td>
-                </tr>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <tr><td colspan="6">No donor appointments found.</td></tr>
-        <?php endif; ?>
-    </table>
 
-    <div class="section-divider"></div>
+<td>
 
-    <!-- ================= RECIPIENT APPOINTMENTS ================= -->
-    <div class="top-bar">
-        <h3>Recipient Appointments</h3>
-        <a href="StaffAppointmentRecipientCrud/StaffAppointmentRecipientCreate.php" class="create-btn">
-            + Add Recipient Appointment
-        </a>
-    </div>
+<?php if($status=='scheduled'): ?>
 
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>Recipient Name</th>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
+<a class="btn btn-edit"
+href="StaffAppointmentDonorCrud/StaffAppointmentDonorUpdate.php?id=<?= $row['appointment_id'] ?>">
+Edit
+</a>
 
-        <?php if ($recipient_result && mysqli_num_rows($recipient_result) > 0): ?>
-            <?php while ($row = mysqli_fetch_assoc($recipient_result)): ?>
-                <tr>
-                    <td><?= $row['appointment_id']; ?></td>
-                    <td><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']); ?></td>
-                    <td><?= date("M d, Y h:i A", strtotime($row['appointment_date'])); ?></td>
-                    <td><?= ucfirst($row['type']); ?></td>
-                    <td>
-                        <?php
-                        $status = $row['status'];
-                        $class = ($status == 'completed') ? 'green' : (($status == 'cancelled') ? 'red' : 'yellow');
-                        echo "<span class='badge $class'>" . ucfirst($status) . "</span>";
-                        ?>
-                    </td>
+<a class="btn btn-delete"
+onclick="return confirm('Delete appointment?')"
+href="StaffAppointmentDonorCrud/StaffAppointmentDonorDelete.php?id=<?= $row['appointment_id'] ?>">
+Delete
+</a>
 
-                    <td>
-    <?php if ($status === 'scheduled'): ?>
-        <a href="StaffAppointmentRecipientCrud/StaffAppointmentRecipientUpdate.php?id=<?= $row['appointment_id']; ?>" 
-           class="action-btn edit-btn">Edit</a>
+<?php else: ?>
 
-        <a href="StaffAppointmentRecipientCrud/StaffAppointmentRecipientDelete.php?id=<?= $row['appointment_id']; ?>" 
-           class="action-btn delete-btn"
-           onclick="return confirm('Are you sure you want to delete this appointment?');">
-           Delete
-        </a>
-    <?php else: ?>
-        <!-- No actions for cancelled or completed appointments -->
-        -
-    <?php endif; ?>
+-
+
+<?php endif; ?>
+
 </td>
-                </tr>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <tr><td colspan="6">No recipient appointments found.</td></tr>
-        <?php endif; ?>
-    </table>
 
-    <div class="section-divider"></div>
+</tr>
 
-    <!-- ================= SELF STORAGE APPOINTMENTS ================= -->
-    <div class="top-bar">
-        <h3>Self Storage Appointments</h3>
-        <a href="StaffAppointmentSelfStorageCrud/StaffAppointmentSelfStorageCreate.php" class="create-btn">
-            + Add Storage Appointment
-        </a>
-    </div>
+<?php endwhile; ?>
 
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>User Name</th>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
+</table>
+</div>
 
-        <?php if ($storage_result && mysqli_num_rows($storage_result) > 0): ?>
-            <?php while ($row = mysqli_fetch_assoc($storage_result)): ?>
-                <tr>
-                    <td><?= $row['appointment_id']; ?></td>
-                    <td><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']); ?></td>
-                    <td><?= date("M d, Y h:i A", strtotime($row['appointment_date'])); ?></td>
-                    <td><?= ucfirst($row['type']); ?></td>
-                    <td>
-                        <?php
-                        $status = $row['status'];
-                        $class = ($status == 'completed') ? 'green' : (($status == 'cancelled') ? 'red' : 'yellow');
-                        echo "<span class='badge $class'>" . ucfirst($status) . "</span>";
-                        ?>
-                    </td>
-                    <td>
-    <?php if ($status === 'scheduled'): ?>
-        <a href="StaffAppointmentSelfStorageCrud/StaffAppointmentSelfStorageUpdate.php?id=<?= $row['appointment_id']; ?>" 
-           class="action-btn edit-btn">Edit</a>
+</div>
 
-        <a href="StaffAppointmentSelfStorageCrud/StaffAppointmentSelfStorageDelete.php?id=<?= $row['appointment_id']; ?>" 
-           class="action-btn delete-btn"
-           onclick="return confirm('Are you sure you want to delete this appointment?');">
-           Delete
-        </a>
-    <?php else: ?>
-        <!-- No actions for cancelled or completed appointments -->
-        -
-    <?php endif; ?>
+
+<!-- RECIPIENT -->
+
+<div class="section">
+
+<div class="flex justify-between items-center mb-4">
+<h2 class="display-font text-xl text-green-900">Recipient Appointments</h2>
+
+<a href="StaffAppointmentRecipientCrud/StaffAppointmentRecipientCreate.php"
+class="btn-add">
++ Add Appointment
+</a>
+</div>
+
+<div class="card">
+<table class="table">
+
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Date</th>
+<th>Type</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+
+<?php while($row=mysqli_fetch_assoc($recipient_result)): ?>
+
+<tr>
+
+<td><?= $row['appointment_id'] ?></td>
+
+<td><?= htmlspecialchars($row['first_name'].' '.$row['last_name']) ?></td>
+
+<td><?= date("M d Y h:i A",strtotime($row['appointment_date'])) ?></td>
+
+<td><?= ucfirst($row['type']) ?></td>
+
+<td>
+
+<?php
+$status=$row['status'];
+$class=$status=='completed'?'green':($status=='cancelled'?'red':'yellow');
+?>
+
+<span class="badge <?= $class ?>">
+<?= ucfirst($status) ?>
+</span>
+
 </td>
-                </tr>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <tr><td colspan="6">No storage appointments found.</td></tr>
-        <?php endif; ?>
-    </table>
 
+<td>
+
+<?php if($status=='scheduled'): ?>
+
+<a class="btn btn-edit"
+href="StaffAppointmentRecipientCrud/StaffAppointmentRecipientUpdate.php?id=<?= $row['appointment_id'] ?>">
+Edit
+</a>
+
+<a class="btn btn-delete"
+onclick="return confirm('Delete appointment?')"
+href="StaffAppointmentRecipientCrud/StaffAppointmentRecipientDelete.php?id=<?= $row['appointment_id'] ?>">
+Delete
+</a>
+
+<?php else: ?>
+
+-
+
+<?php endif; ?>
+
+</td>
+
+</tr>
+
+<?php endwhile; ?>
+
+</table>
+</div>
+
+</div>
+
+
+<!-- STORAGE -->
+
+<div class="section">
+
+<div class="flex justify-between items-center mb-4">
+<h2 class="display-font text-xl text-green-900">Storage Appointments</h2>
+
+<a href="StaffAppointmentSelfStorageCrud/StaffAppointmentSelfStorageCreate.php"
+class="btn-add">
++ Add Appointment
+</a>
+</div>
+
+<div class="card">
+<table class="table">
+
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Date</th>
+<th>Type</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+
+<?php while($row=mysqli_fetch_assoc($storage_result)): ?>
+
+<tr>
+
+<td><?= $row['appointment_id'] ?></td>
+
+<td><?= htmlspecialchars($row['first_name'].' '.$row['last_name']) ?></td>
+
+<td><?= date("M d Y h:i A",strtotime($row['appointment_date'])) ?></td>
+
+<td><?= ucfirst($row['type']) ?></td>
+
+<td>
+
+<?php
+$status=$row['status'];
+$class=$status=='completed'?'green':($status=='cancelled'?'red':'yellow');
+?>
+
+<span class="badge <?= $class ?>">
+<?= ucfirst($status) ?>
+</span>
+
+</td>
+
+<td>
+
+<?php if($status=='scheduled'): ?>
+
+<a class="btn btn-edit"
+href="StaffAppointmentSelfStorageCrud/StaffAppointmentSelfStorageUpdate.php?id=<?= $row['appointment_id'] ?>">
+Edit
+</a>
+
+<a class="btn btn-delete"
+onclick="return confirm('Delete appointment?')"
+href="StaffAppointmentSelfStorageCrud/StaffAppointmentSelfStorageDelete.php?id=<?= $row['appointment_id'] ?>">
+Delete
+</a>
+
+<?php else: ?>
+
+-
+
+<?php endif; ?>
+
+</td>
+
+</tr>
+
+<?php endwhile; ?>
+
+</table>
+</div>
+
+</div>
+
+
+</div>
 </div>
 
 <?php include('../../../includes/footer.php'); ?>
