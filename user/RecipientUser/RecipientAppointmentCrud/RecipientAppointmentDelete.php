@@ -2,80 +2,40 @@
 session_start();
 include('../../../includes/config.php');
 
-// Recipient access only
-if (!isset($_SESSION['account_id']) || $_SESSION['role'] !== 'recipient') {
+// Admin protection
+if (!isset($_SESSION['account_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../../../unauthorized.php");
     exit();
 }
 
-// Get appointment ID
-$appointment_id = intval($_GET['id'] ?? 0);
-
-if ($appointment_id <= 0) {
-    $_SESSION['error'] = "Invalid appointment.";
+// Check if appointment ID is provided
+if (!isset($_GET['id'])) {
     header("Location: RecipientAppointmentIndex.php");
     exit();
 }
 
-// Get recipient_id from logged in account
-$stmt = $conn->prepare("
-    SELECT recipient_id 
-    FROM recipients_users 
-    WHERE account_id = ?
-");
-$stmt->bind_param("i", $_SESSION['account_id']);
-$stmt->execute();
-$result = $stmt->get_result();
-$recipient = $result->fetch_assoc();
+$appointment_id = intval($_GET['id']);
 
-if (!$recipient) {
-    $_SESSION['error'] = "Recipient record not found.";
-    header("Location: RecipientAppointmentIndex.php");
-    exit();
-}
-
-$recipient_id = $recipient['recipient_id'];
-
-// Check appointment ownership
-$stmt = $conn->prepare("
-    SELECT status 
-    FROM appointments
-    WHERE appointment_id = ?
-    AND user_type = 'recipient'
-    AND user_id = ?
-");
-$stmt->bind_param("ii", $appointment_id, $recipient_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$appointment = $result->fetch_assoc();
-
-if (!$appointment) {
-    $_SESSION['error'] = "Appointment not found.";
-    header("Location: RecipientAppointmentIndex.php");
-    exit();
-}
-
-// Prevent cancelling completed
-if ($appointment['status'] === 'completed') {
-    $_SESSION['error'] = "Completed appointments cannot be cancelled.";
-    header("Location: RecipientAppointmentIndex.php");
-    exit();
-}
-
-// Update status instead of deleting
-$stmt = $conn->prepare("
-    UPDATE appointments
-    SET status = 'cancelled'
-    WHERE appointment_id = ?
-");
+// Verify appointment exists and belongs to a recipient
+$stmt = $conn->prepare("SELECT appointment_id FROM appointments WHERE appointment_id=? AND user_type='recipient'");
 $stmt->bind_param("i", $appointment_id);
+$stmt->execute();
+$result = $stmt->get_result();
 
-if ($stmt->execute()) {
-    $_SESSION['success'] = "Appointment cancelled successfully.";
-} else {
-    $_SESSION['error'] = "Failed to cancel appointment.";
+if ($result->num_rows === 0) {
+    // Not found or not a recipient appointment
+    header("Location: RecipientAppointmentIndex.php");
+    exit();
 }
 
-header("Location: RecipientAppointmentIndex.php");
+// Delete the appointment
+$stmtDelete = $conn->prepare("DELETE FROM appointments WHERE appointment_id=?");
+$stmtDelete->bind_param("i", $appointment_id);
+
+if (!$stmtDelete->execute()) {
+    die("Appointment delete error: " . $stmtDelete->error);
+}
+
+header("Location: RecipientAppointmentIndex.php?success=appointment_deleted");
 exit();
 ?>
