@@ -1,6 +1,3 @@
-StaffAppointmentRecipientCrud/
-
-StaffAppointmentRecipientCreate.php
 <?php
 session_start();
 include('../../../../includes/config.php');
@@ -12,567 +9,305 @@ if (!isset($_SESSION['account_id']) || $_SESSION['role'] !== 'staff') {
     exit();
 }
 
-// Fetch recipients for search
-$recipient_result = mysqli_query($conn, "SELECT recipient_id, first_name, last_name FROM recipients_users ORDER BY first_name ASC");
-$recipients = [];
-while ($row = mysqli_fetch_assoc($recipient_result)) {
-    $recipients[] = $row;
+// Fetch donors for live search
+$donor_result = mysqli_query($conn, "
+    SELECT d.donor_id, d.first_name, d.last_name, d.profile_image, d.blood_type
+    FROM donors_users d
+    JOIN accounts a ON d.account_id = a.account_id
+    WHERE a.status = 'active'
+    ORDER BY d.first_name ASC
+");
+$donors = [];
+while ($row = mysqli_fetch_assoc($donor_result)) {
+    $donors[] = $row;
 }
 ?>
 
 <style>
-.container { padding: 30px; }
-form { max-width: 500px; margin: auto; }
-input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-button {
-    padding: 10px 15px;
-    background: green;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
-.message { padding: 12px; margin-bottom: 15px; border-radius: 5px; }
-.error { background:#f8d7da; color:#721c24; }
-.success { background:#d4edda; color:#155724; }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
-.back-btn {
-    display: inline-block;
-    padding: 8px 15px;
-    background: #555;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    margin-bottom: 15px;
-}
-.back-btn:hover { background: #333; }
+  .staff-wrap { font-family: 'DM Sans', sans-serif; }
+  .display-font { font-family: 'DM Serif Display', serif; }
 
-.search-container { position: relative; }
-#search-results {
-    position: absolute;
-    width: 100%;
+  .fade-up { opacity:0; transform:translateY(16px); animation: fu .48s ease forwards; }
+  @keyframes fu { to { opacity:1; transform:translateY(0); } }
+  .d1{animation-delay:.06s} .d2{animation-delay:.12s}
+  .d3{animation-delay:.18s} .d4{animation-delay:.24s}
+  .d5{animation-delay:.30s}
+
+  /* Search dropdown */
+  .search-wrap { position: relative; }
+  #search-results {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
     background: white;
-    border: 1px solid #ccc;
-    border-top: none;
-    z-index: 1000;
-    max-height: 200px;
+    border: 1.5px solid #bbf7d0;
+    border-radius: 12px;
+    z-index: 50;
+    max-height: 220px;
     overflow-y: auto;
     display: none;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-.search-item {
-    padding: 10px;
+    box-shadow: 0 8px 24px rgba(21,128,61,.12);
+  }
+  .search-item {
+    display: flex; align-items: center; gap-3; gap: 10px;
+    padding: 10px 14px;
     cursor: pointer;
-    border-bottom: 1px solid #eee;
-}
-.search-item:hover { background: #f0f0f0; }
+    border-bottom: 1px solid #f0fdf4;
+    transition: background .15s;
+    font-size: .875rem;
+  }
+  .search-item:last-child { border-bottom: none; }
+  .search-item:hover { background: #f0fdf4; }
+  .search-item .initials {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #dcfce7; color: #15803d;
+    font-weight: 700; font-size: .7rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .search-item .item-name { font-weight: 600; color: #1a2e1a; }
+  .search-item .item-blood { font-size: .7rem; color: #16a34a; font-weight: 700; }
+
+  /* Selected donor pill */
+  #selected-donor-pill {
+    display: none;
+    align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: #f0fdf4;
+    border: 1.5px solid #86efac;
+    border-radius: 12px;
+    margin-top: 8px;
+  }
+  #selected-donor-pill .pill-name { font-size: .875rem; font-weight: 700; color: #15803d; }
+  #selected-donor-pill button {
+    margin-left: auto; background: none; border: none;
+    color: #dc2626; cursor: pointer; font-size: .8rem; font-weight: 700;
+    padding: 2px 6px; border-radius: 6px;
+  }
+  #selected-donor-pill button:hover { background: #fee2e2; }
+
+  /* Form inputs */
+  .form-input {
+    width: 100%;
+    padding: .75rem 1rem;
+    border: 1.5px solid #bbf7d0;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .9rem; color: #1a2e1a;
+    background: white;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .form-input:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.1); }
+  .form-input::placeholder { color: #9ca3af; }
+
+  /* Validation hint */
+  .hint-row {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;
+  }
+  .hint {
+    font-size: .7rem; font-weight: 700; color: #16a34a;
+    background: #f0fdf4; border: 1px solid #bbf7d0;
+    padding: 2px 8px; border-radius: 20px;
+  }
+
+  /* Submit */
+  .submit-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: white; font-weight: 700; font-size: .95rem;
+    padding: .95rem; border: none; border-radius: 14px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    box-shadow: 0 4px 16px rgba(21,128,61,.28);
+    transition: all .2s;
+  }
+  .submit-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(21,128,61,.38); }
 </style>
 
-<div class="container">
-    <a href="../StaffAppointmentIndex.php" class="back-btn">← Back to Appointment Dashboard</a>
-    <h2>Add Recipient Appointment</h2>
+<div class="staff-wrap min-h-screen bg-gradient-to-br from-green-50/60 via-white to-emerald-50/30 py-10 px-4">
+  <div class="max-w-2xl mx-auto">
 
-    <?php if (isset($_SESSION['error'])): ?>
-        <div class="message error"><?= $_SESSION['error']; ?></div>
-        <?php unset($_SESSION['error']); ?>
-    <?php endif; ?>
+    <!-- Back -->
+    <div class="fade-up mb-6">
+      <a href="../StaffAppointmentIndex.php"
+         class="inline-flex items-center gap-2 text-sm font-semibold text-green-700 hover:text-green-900 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back to Appointments
+      </a>
+    </div>
 
-    <?php if (isset($_SESSION['success'])): ?>
-        <div class="message success"><?= $_SESSION['success']; ?></div>
-        <?php unset($_SESSION['success']); ?>
-    <?php endif; ?>
+    <!-- Card -->
+    <div class="fade-up d1 bg-white border border-green-100 rounded-2xl shadow-xl shadow-green-100/20 overflow-hidden">
 
-    <form action="StaffAppointmentRecipientStore.php" method="POST" autocomplete="off">
-        <input type="hidden" name="action" value="create_recipient_appointment">
-
-        <label>Search Recipient</label>
-        <div class="search-container">
-            <input type="text" id="recipient_search_input" placeholder="Type name to search recipients..." required>
-            <input type="hidden" name="recipient_id" id="recipient_id_hidden" required>
-            <div id="search-results"></div>
+      <!-- Card Header -->
+      <div class="relative bg-gradient-to-r from-green-800 to-emerald-700 px-8 py-6 overflow-hidden">
+        <div class="absolute inset-0 opacity-10"
+             style="background-image: radial-gradient(circle at 20% 50%, white 1px, transparent 1px),
+                                      radial-gradient(circle at 80% 20%, white 1px, transparent 1px);
+                    background-size: 38px 38px;"></div>
+        <div class="relative">
+          <p class="text-green-200 text-[10px] font-bold uppercase tracking-widest mb-1">Staff Portal</p>
+          <h2 class="display-font text-white text-2xl">Add Donor Appointment</h2>
+          <p class="text-green-200/80 text-sm mt-1">Schedule a new appointment for a donor.</p>
         </div>
+      </div>
 
-        <label>Appointment Date & Time</label>
-        <input type="datetime-local" name="appointment_date" required>
+      <div class="p-8 space-y-7">
 
-        <label>Appointment Type</label>
-        <select name="appointment_type" required>
-        <option value="consultation">Consultation</option>
-        <option value="release">Release</option>
-        </select>  
+        <!-- Alerts -->
+        <?php if (isset($_SESSION['error'])): ?>
+          <div class="fade-up p-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded-xl font-medium flex items-center gap-2">
+            <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+            <?= $_SESSION['error']; unset($_SESSION['error']); ?>
+          </div>
+        <?php endif; ?>
 
-        <label>Status</label>
-        <select name="status" required>
-            <option value="scheduled">Scheduled</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-        </select>
+        <?php if (isset($_SESSION['success'])): ?>
+          <div class="fade-up p-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl font-medium flex items-center gap-2">
+            <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            <?= $_SESSION['success']; unset($_SESSION['success']); ?>
+          </div>
+        <?php endif; ?>
 
-        <button type="submit">Add Recipient Appointment</button>
-    </form>
+        <form action="StaffAppointmentDonorStore.php" method="POST" autocomplete="off" class="space-y-7">
+          <input type="hidden" name="action" value="create_donor_appointment">
+
+          <!-- Donor Search -->
+          <div class="fade-up d2">
+            <h3 class="text-[10px] font-black uppercase tracking-widest text-green-800 mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 bg-green-500 rounded-full"></span> Select Donor
+            </h3>
+            <div class="search-wrap">
+              <input type="text" id="donor_search_input" class="form-input"
+                     placeholder="Type donor name to search…">
+              <input type="hidden" name="donor_id" id="donor_id_hidden">
+              <div id="search-results"></div>
+            </div>
+
+            <!-- Selected donor confirmation pill -->
+            <div id="selected-donor-pill">
+              <div class="initials" id="pill-initials"></div>
+              <span class="pill-name" id="pill-name"></span>
+              <button type="button" onclick="clearDonor()">✕ Clear</button>
+            </div>
+          </div>
+
+          <!-- Appointment Date & Type -->
+          <div class="fade-up d3">
+            <h3 class="text-[10px] font-black uppercase tracking-widest text-green-800 mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 bg-green-500 rounded-full"></span> Appointment Details
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-green-700 mb-2">Date & Time</label>
+                <input type="datetime-local" name="appointment_date" required class="form-input">
+                <div class="hint-row">
+                  <span class="hint">⏰ 7:00 AM – 7:00 PM</span>
+                  <span class="hint">📅 Future dates only</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-green-700 mb-2">Appointment Type</label>
+                <select name="appointment_type" required class="form-input cursor-pointer">
+                  <option value="consultation">Consultation</option>
+                  <option value="donation">Donation</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status -->
+          <div class="fade-up d4">
+            <h3 class="text-[10px] font-black uppercase tracking-widest text-green-800 mb-3 flex items-center gap-2">
+              <span class="w-2 h-2 bg-green-500 rounded-full"></span> Status
+            </h3>
+            <div class="w-full sm:w-1/2">
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-green-700 mb-2">Initial Status</label>
+              <select name="status" required class="form-input cursor-pointer">
+                <option value="scheduled">Scheduled</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <div class="fade-up d5 pt-2 border-t border-green-50">
+            <button type="submit" class="submit-btn">Schedule Appointment</button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-// Pass PHP recipients array to JS
-const recipients = <?php echo json_encode($recipients); ?>;
+const donors = <?= json_encode($donors); ?>;
 
-const searchInput = document.getElementById('recipient_search_input');
-const resultsDiv = document.getElementById('search-results');
-const hiddenIdInput = document.getElementById('recipient_id_hidden');
+const searchInput  = document.getElementById('donor_search_input');
+const resultsDiv   = document.getElementById('search-results');
+const hiddenInput  = document.getElementById('donor_id_hidden');
+const pillEl       = document.getElementById('selected-donor-pill');
+const pillName     = document.getElementById('pill-name');
+const pillInitials = document.getElementById('pill-initials');
 
-searchInput.addEventListener('input', function() {
-    const query = this.value.toLowerCase();
-    resultsDiv.innerHTML = '';
-    
-    if (query.length > 0) {
-        const matches = recipients.filter(r => 
-            (r.first_name + ' ' + r.last_name).toLowerCase().includes(query)
-        );
+function getInitials(first, last) {
+  return ((first || '').charAt(0) + (last || '').charAt(0)).toUpperCase();
+}
 
-        if (matches.length > 0) {
-            resultsDiv.style.display = 'block';
-            matches.forEach(match => {
-                const div = document.createElement('div');
-                div.classList.add('search-item');
-                div.textContent = match.first_name + ' ' + match.last_name;
-                div.onclick = function() {
-                    searchInput.value = match.first_name + ' ' + match.last_name;
-                    hiddenIdInput.value = match.recipient_id;
-                    resultsDiv.style.display = 'none';
-                };
-                resultsDiv.appendChild(div);
-            });
-        } else {
-            resultsDiv.style.display = 'none';
-        }
-    } else {
-        resultsDiv.style.display = 'none';
-    }
+searchInput.addEventListener('input', function () {
+  const q = this.value.toLowerCase().trim();
+  resultsDiv.innerHTML = '';
+
+  if (q.length < 1) { resultsDiv.style.display = 'none'; return; }
+
+  const matches = donors.filter(d =>
+    (d.first_name + ' ' + d.last_name).toLowerCase().includes(q)
+  );
+
+  if (!matches.length) { resultsDiv.style.display = 'none'; return; }
+
+  resultsDiv.style.display = 'block';
+  matches.slice(0, 10).forEach(d => {
+    const item = document.createElement('div');
+    item.className = 'search-item';
+    item.innerHTML = `
+      <div class="initials">${getInitials(d.first_name, d.last_name)}</div>
+      <div>
+        <div class="item-name">${d.first_name} ${d.last_name}</div>
+        ${d.blood_type ? `<div class="item-blood">${d.blood_type}</div>` : ''}
+      </div>`;
+    item.onclick = () => selectDonor(d);
+    resultsDiv.appendChild(item);
+  });
 });
 
-// Hide results when clicking outside
-document.addEventListener('click', function(e) {
-    if (e.target !== searchInput) {
-        resultsDiv.style.display = 'none';
-    }
+function selectDonor(d) {
+  searchInput.value      = d.first_name + ' ' + d.last_name;
+  hiddenInput.value      = d.donor_id;
+  resultsDiv.style.display = 'none';
+  pillInitials.textContent = getInitials(d.first_name, d.last_name);
+  pillName.textContent     = d.first_name + ' ' + d.last_name;
+  pillEl.style.display     = 'flex';
+  searchInput.readOnly     = true;
+  searchInput.style.background = '#f0fdf4';
+}
+
+function clearDonor() {
+  searchInput.value        = '';
+  hiddenInput.value        = '';
+  pillEl.style.display     = 'none';
+  searchInput.readOnly     = false;
+  searchInput.style.background = '';
+  searchInput.focus();
+}
+
+document.addEventListener('click', e => {
+  if (e.target !== searchInput) resultsDiv.style.display = 'none';
 });
 </script>
 
 <?php include('../../../../includes/footer.php'); ?>
-
-StaffAppointmentRecipientDelete.php
-<?php
-session_start();
-include('../../../../includes/config.php');
-
-// STAFF access only
-if (!isset($_SESSION['account_id']) || $_SESSION['role'] !== 'staff') {
-    header("Location: ../../../../unauthorized.php");
-    exit();
-}
-
-// Make sure ID is provided
-if (!isset($_GET['id'])) {
-    $_SESSION['error'] = "Invalid appointment.";
-    header("Location: ../StaffAppointmentIndex.php");
-    exit();
-}
-
-$appointment_id = intval($_GET['id']);
-if ($appointment_id <= 0) {
-    $_SESSION['error'] = "Invalid appointment.";
-    header("Location: ../StaffAppointmentIndex.php");
-    exit();
-}
-
-// Delete the recipient appointment
-$stmt = $conn->prepare("DELETE FROM appointments WHERE appointment_id = ? AND user_type = 'recipient'");
-$stmt->bind_param("i", $appointment_id);
-
-if ($stmt->execute()) {
-    $_SESSION['success'] = "Recipient appointment deleted successfully.";
-} else {
-    $_SESSION['error'] = "Failed to delete appointment.";
-}
-
-// Redirect back to the recipient appointment index
-header("Location: ../StaffAppointmentIndex.php");
-exit();
-?>
-
-StaffAppointmentRecipientStore.php
-<?php
-session_start();
-include('../../../../includes/config.php');
-
-// STAFF access only
-if (!isset($_SESSION['account_id']) || $_SESSION['role'] !== 'staff') {
-    header("Location: ../../../../unauthorized.php");
-    exit();
-}
-
-$action = $_POST['action'] ?? '';
-
-/* ============================================================
-   =============== CREATE RECIPIENT APPOINTMENT ===============
-   ============================================================ */
-if ($action === 'create_recipient_appointment') {
-
-    $recipient_id = intval($_POST['recipient_id'] ?? 0);
-    $appointment_date = $_POST['appointment_date'] ?? '';
-    $appointment_type = $_POST['appointment_type'] ?? 'donation';
-    $status = $_POST['status'] ?? 'scheduled';
-
-    if ($recipient_id <= 0 || empty($appointment_date)) {
-        $_SESSION['error'] = "Please fill in all required fields.";
-        header("Location: StaffAppointmentRecipientCreate.php");
-        exit();
-    }
-
-    $appointment_datetime = strtotime($appointment_date);
-    $now = time();
-    $date_only = date('Y-m-d', $appointment_datetime);
-    $today_date = date('Y-m-d');
-
-    // 1️⃣ Cannot book for today
-    if ($date_only === $today_date) {
-        $_SESSION['error'] = "You cannot create an appointment for the current date.";
-        header("Location: StaffAppointmentRecipientCreate.php");
-        exit();
-    }
-
-    // 2️⃣ Past date/time check
-    if ($appointment_datetime < $now) {
-        $_SESSION['error'] = "Cannot create appointment for past date/time.";
-        header("Location: StaffAppointmentRecipientCreate.php");
-        exit();
-    }
-
-    $hour = intval(date('H', $appointment_datetime));
-
-    // 3️⃣ Operating hours check (7AM–7PM)
-    if ($hour < 7 || $hour >= 19) {
-        $_SESSION['error'] = "Appointments allowed only between 7:00 AM and 7:00 PM.";
-        header("Location: StaffAppointmentRecipientCreate.php");
-        exit();
-    }
-
-    // 4️⃣ Check for any upcoming appointment (excluding cancelled & completed)
-    $stmt_upcoming = $conn->prepare("
-        SELECT * FROM appointments
-        WHERE user_type = 'recipient' 
-          AND user_id = ? 
-          AND appointment_date > NOW() 
-          AND status != 'cancelled'
-          AND status != 'completed'
-    ");
-    $stmt_upcoming->bind_param("i", $recipient_id);
-    $stmt_upcoming->execute();
-    $result_upcoming = $stmt_upcoming->get_result();
-
-    if ($result_upcoming->num_rows > 0) {
-        $_SESSION['error'] = "This recipient already has an upcoming appointment.";
-        header("Location: StaffAppointmentRecipientCreate.php");
-        exit();
-    }
-
-    // 5️⃣ Check if recipient already has appointment that same day
-    $stmt_day = $conn->prepare("
-        SELECT * FROM appointments 
-        WHERE user_type = 'recipient' 
-          AND user_id = ? 
-          AND DATE(appointment_date) = ?
-          AND status != 'cancelled'
-    ");
-    $stmt_day->bind_param("is", $recipient_id, $date_only);
-    $stmt_day->execute();
-    $result_day = $stmt_day->get_result();
-
-    if ($result_day->num_rows > 0) {
-        $_SESSION['error'] = "This recipient already has an appointment booked for this day.";
-        header("Location: StaffAppointmentRecipientCreate.php");
-        exit();
-    }
-
-    // 6️⃣ Check if hour slot already taken by another recipient
-    $start_hour = date('Y-m-d H:00:00', $appointment_datetime);
-    $end_hour   = date('Y-m-d H:59:59', $appointment_datetime);
-
-    $stmt_hour = $conn->prepare("
-        SELECT * FROM appointments 
-        WHERE user_type = 'recipient' 
-          AND appointment_date BETWEEN ? AND ?
-          AND status != 'cancelled'
-    ");
-    $stmt_hour->bind_param("ss", $start_hour, $end_hour);
-    $stmt_hour->execute();
-    $result_hour = $stmt_hour->get_result();
-
-    if ($result_hour->num_rows > 0) {
-        $_SESSION['error'] = "This time slot is already booked for a recipient.";
-        header("Location: StaffAppointmentRecipientCreate.php");
-        exit();
-    }
-
-    // ✅ Insert appointment
-    $stmt = $conn->prepare("
-    INSERT INTO appointments (user_type, user_id, appointment_date, type, status)
-    VALUES ('recipient', ?, ?, ?, ?)
-");
-$stmt->bind_param("isss", $recipient_id, $appointment_date, $appointment_type, $status);
-
-    if ($stmt->execute()) {
-        $_SESSION['success'] = "Recipient appointment created successfully.";
-    } else {
-        $_SESSION['error'] = "Failed to create appointment.";
-    }
-
-    header("Location: StaffAppointmentRecipientCreate.php");
-    exit();
-}
-
-
-/* ============================================================
-   =============== UPDATE RECIPIENT APPOINTMENT ===============
-   ============================================================ */
-   $new_type = $_POST['appointment_type'] ?? '';
-
-   if ($action === 'update_recipient_appointment') {
-
-    $appointment_id = intval($_POST['appointment_id'] ?? 0);
-    $new_date = $_POST['appointment_date'] ?? '';
-    $new_status = $_POST['status'] ?? '';
-
-    if ($appointment_id <= 0 || empty($new_date)) {
-        $_SESSION['error'] = "Invalid appointment or missing date.";
-        header("Location: StaffAppointmentRecipientUpdate.php?id=" . $appointment_id);
-        exit();
-    }
-
-    // Fetch current appointment
-    $stmt_curr = $conn->prepare("
-       SELECT appointment_date, status, type, user_id
-        FROM appointments 
-        WHERE appointment_id = ? AND user_type = 'recipient'
-    ");
-    $stmt_curr->bind_param("i", $appointment_id);
-    $stmt_curr->execute();
-    $result_curr = $stmt_curr->get_result();
-
-    if ($result_curr->num_rows === 0) {
-        $_SESSION['error'] = "Appointment not found.";
-        header("Location: StaffAppointmentRecipientUpdate.php?id=" . $appointment_id);
-        exit();
-    }
-
-    $current = $result_curr->fetch_assoc();
-    $recipient_id = $current['user_id'];
-
-    $current_date = date('Y-m-d H:i', strtotime($current['appointment_date']));
-    $new_date_normalized = date('Y-m-d H:i', strtotime($new_date));
-
-if ($current_date === $new_date_normalized && $current['status'] === $new_status && $current['type'] === $new_type) {        $_SESSION['error'] = "No changes detected.";
-        $_SESSION['error'] = "No changes detected.";
-        header("Location: StaffAppointmentRecipientUpdate.php?id=" . $appointment_id);
-        exit();
-    }
-
-    $appointment_datetime = strtotime($new_date);
-    $now = time();
-    $date_only = date('Y-m-d', $appointment_datetime);
-    $today_date = date('Y-m-d');
-
-    // 1️⃣ Cannot set for today
-    if ($date_only === $today_date) {
-        $_SESSION['error'] = "You cannot set an appointment for the current date.";
-        header("Location: StaffAppointmentRecipientUpdate.php?id=" . $appointment_id);
-        exit();
-    }
-
-    // 2️⃣ Past date/time check
-    if ($appointment_datetime < $now) {
-        $_SESSION['error'] = "Cannot set appointment for past date/time.";
-        header("Location: StaffAppointmentRecipientUpdate.php?id=" . $appointment_id);
-        exit();
-    }
-
-    $hour = intval(date('H', $appointment_datetime));
-
-    // 3️⃣ Operating hours check
-    if ($hour < 7 || $hour >= 19) {
-        $_SESSION['error'] = "Appointments allowed only between 7:00 AM and 7:00 PM.";
-        header("Location: StaffAppointmentRecipientUpdate.php?id=" . $appointment_id);
-        exit();
-    }
-
-    // 4️⃣ Check for another upcoming appointment (exclude this one)
-    $stmt_upcoming = $conn->prepare("
-        SELECT * FROM appointments
-        WHERE user_type = 'recipient'
-          AND user_id = ?
-          AND appointment_date > NOW()
-          AND status != 'cancelled'
-          AND status != 'completed'
-          AND appointment_id != ?
-    ");
-    $stmt_upcoming->bind_param("ii", $recipient_id, $appointment_id);
-    $stmt_upcoming->execute();
-    $result_upcoming = $stmt_upcoming->get_result();
-
-    if ($result_upcoming->num_rows > 0) {
-        $_SESSION['error'] = "This recipient already has another upcoming appointment.";
-        header("Location: StaffAppointmentRecipientUpdate.php?id=" . $appointment_id);
-        exit();
-    }
-
-    // 5️⃣ Hour conflict check
-    $start_hour = date('Y-m-d H:00:00', $appointment_datetime);
-    $end_hour   = date('Y-m-d H:59:59', $appointment_datetime);
-
-    $stmt_hour = $conn->prepare("
-        SELECT * FROM appointments 
-        WHERE appointment_date BETWEEN ? AND ?
-          AND appointment_id != ?
-          AND user_type = 'recipient'
-          AND status != 'cancelled'
-    ");
-    $stmt_hour->bind_param("ssi", $start_hour, $end_hour, $appointment_id);
-    $stmt_hour->execute();
-    $result_hour = $stmt_hour->get_result();
-
-    if ($result_hour->num_rows > 0) {
-        $_SESSION['error'] = "This time slot is already booked.";
-        header("Location: StaffAppointmentRecipientUpdate.php?id=" . $appointment_id);
-        exit();
-    }
-
-    // ✅ Update appointment
-    $stmt = $conn->prepare("
-        UPDATE appointments
-        SET appointment_date = ?, type = ?, status = ?
-        WHERE appointment_id = ? AND user_type = 'recipient'
-    ");
-    $stmt->bind_param("sssi", $new_date, $new_type, $new_status, $appointment_id);
-
-    if ($stmt->execute()) {
-        $_SESSION['success'] = "Recipient appointment updated successfully.";
-    } else {
-        $_SESSION['error'] = "Failed to update appointment.";
-    }
-
-    header("Location: StaffAppointmentRecipientUpdate.php?id=" . $appointment_id);
-    exit();
-}
-?>
-
-StaffAppointmentRecipientUpdate.php
-<?php
-session_start();
-include('../../../../includes/config.php');
-include('../../../../includes/header.php');
-
-// STAFF access only
-if (!isset($_SESSION['account_id']) || $_SESSION['role'] !== 'staff') {
-    header("Location: ../../../../unauthorized.php");
-    exit();
-}
-
-// Check for appointment ID
-if (!isset($_GET['id'])) {
-    header("Location: ../StaffAppointmentIndex.php");
-    exit();
-}
-
-$appointment_id = intval($_GET['id']);
-
-// Fetch the recipient appointment
-$stmt = $conn->prepare("
-    SELECT a.appointment_date, a.status, a.type, u.first_name, u.last_name
-    FROM appointments a
-    JOIN recipients_users u ON a.user_id = u.recipient_id
-    WHERE a.appointment_id = ? AND a.user_type = 'recipient'
-");
-$stmt->bind_param("i", $appointment_id);
-$stmt->execute();
-$result = $stmt->get_result();
-
-if ($result->num_rows === 0) {
-    header("Location: ../StaffAppointmentIndex.php");
-    exit();
-}
-
-$appointment = $result->fetch_assoc();
-?>
-
-<style>
-.container { padding: 30px; }
-form { max-width: 500px; margin: auto; }
-label, select { display: block; margin-top: 15px; }
-input, select { width: 100%; padding: 10px; margin: 10px 0; }
-button {
-    padding: 10px 15px;
-    background: green;
-    color: white;
-    border: none;
-}
-.locked { background:#eee; }
-.error { background:#f8d7da; color:#721c24; padding:10px; }
-.success { background:#d4edda; color:#155724; padding:10px; }
-
-.back-btn {
-    display: inline-block;
-    margin-bottom: 15px;
-    padding: 8px 12px;
-    background: #555;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-}
-.back-btn:hover { background: #333; }
-</style>
-
-<div class="container">
-    <h2>Update Recipient Appointment</h2>
-
-    <?php if (isset($_SESSION['error'])): ?>
-        <div class="error"><?= $_SESSION['error']; ?></div>
-        <?php unset($_SESSION['error']); ?>
-    <?php endif; ?>
-
-    <?php if (isset($_SESSION['success'])): ?>
-        <div class="success"><?= $_SESSION['success']; ?></div>
-        <?php unset($_SESSION['success']); ?>
-    <?php endif; ?>
-
-    <form action="StaffAppointmentRecipientStore.php" method="POST">
-        <input type="hidden" name="action" value="update_recipient_appointment">
-        <input type="hidden" name="appointment_id" value="<?= $appointment_id; ?>">
-
-        <label>Recipient Name</label>
-        <input type="text" value="<?= htmlspecialchars($appointment['first_name'] . ' ' . $appointment['last_name']); ?>" class="locked" disabled>
-
-        <label>Appointment Date & Time</label>
-        <input type="datetime-local" name="appointment_date"
-            value="<?= date('Y-m-d\TH:i', strtotime($appointment['appointment_date'])); ?>">
-
-
-            <label>Appointment Type</label>
-<select name="appointment_type" required>
-    <option value="consultation" <?= $appointment['type']=='consultation'?'selected':'' ?>>Consultation</option>
-    <option value="release" <?= $appointment['type']=='release'?'selected':'' ?>>Release</option>
-</select>
-
-        <label>Status</label>
-        <select name="status">
-            <option value="">Select status</option>
-            <option value="scheduled" <?= $appointment['status'] == 'scheduled' ? 'selected' : ''; ?>>Scheduled</option>
-            <option value="completed" <?= $appointment['status'] == 'completed' ? 'selected' : ''; ?>>Completed</option>
-            <option value="cancelled" <?= $appointment['status'] == 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
-        </select>
-
-        <button type="submit">Update Recipient Appointment</button>
-        <a href="../StaffAppointmentIndex.php" class="back-btn">← Back to Index</a>
-    </form>
-</div>
-
-<?php include('../../../../includes/footer.php'); ?>
-
