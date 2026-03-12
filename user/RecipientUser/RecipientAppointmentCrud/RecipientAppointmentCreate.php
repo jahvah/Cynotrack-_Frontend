@@ -1,92 +1,128 @@
 <?php
 session_start();
 include('../../../includes/config.php');
-include('../../../includes/header.php');
+include('../../../includes/head.php');
+include('../../../includes/admin_header.php');
 
-// RECIPIENT access only
-if (!isset($_SESSION['account_id']) || $_SESSION['role'] !== 'recipient') {
-    header("Location: ../../../unauthorized.php");
+// Security Check
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+    header("Location: " . ROOT_URL . "login.php");
     exit();
 }
 
-// Get logged-in recipient ID
-$account_id = $_SESSION['account_id'];
-$recipient_query = mysqli_query($conn, "SELECT recipient_id FROM recipients_users WHERE account_id = '$account_id' LIMIT 1");
-$recipient_data = mysqli_fetch_assoc($recipient_query);
-
-if (!$recipient_data) {
-    echo "<div class='container'><div class='message error'>Recipient record not found.</div></div>";
-    include('../../../includes/footer.php');
-    exit();
-}
-
-$recipient_id = $recipient_data['recipient_id'];
+// Fetch all recipients for dropdown
+$recipientQuery = "
+    SELECT r.recipient_id, r.first_name, r.last_name, acc.email
+    FROM recipients_users r
+    JOIN accounts acc ON r.account_id = acc.account_id
+    WHERE acc.status = 'active'
+    ORDER BY r.first_name ASC
+";
+$recipients = mysqli_query($conn, $recipientQuery);
 ?>
 
-<style>
-.container { padding: 30px; }
-form { max-width: 500px; margin: auto; }
-input, select { 
-    width: 100%; 
-    padding: 10px; 
-    margin: 10px 0; 
-    border: 1px solid #ccc; 
-    border-radius: 4px; 
-    box-sizing: border-box; 
-}
-button {
-    padding: 10px 15px;
-    background: green;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
-.message { padding: 12px; margin-bottom: 15px; border-radius: 5px; }
-.error { background:#f8d7da; color:#721c24; }
-.success { background:#d4edda; color:#155724; }
+<div class="max-w-7xl mx-auto py-10 px-4">
+    <div class="mb-6">
+        <a href="RecipientAppointmentIndex.php" class="text-sm font-bold text-green-700 hover:text-green-800 transition flex items-center gap-1">
+            ← Back to Appointment List
+        </a>
+    </div>
 
-.back-btn {
-    display: inline-block;
-    padding: 8px 15px;
-    background: #555;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    margin-bottom: 15px;
-}
-.back-btn:hover { background: #333; }
-</style>
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white border border-green-100 rounded-2xl shadow-xl shadow-green-100/20 overflow-hidden">
 
-<div class="container">
-    <a href="RecipientAppointmentIndex.php" class="back-btn">← Back to Appointment Dashboard</a>
-    <h2>Create Appointment</h2>
+            <div class="bg-green-50/50 border-b border-green-100 px-8 py-6">
+                <h2 class="text-2xl font-bold text-green-900">Add New Appointment</h2>
+                <p class="text-green-600 text-sm mt-1 font-medium">Schedule a new appointment for a recipient.</p>
+            </div>
 
-    <?php if (isset($_SESSION['error'])): ?>
-        <div class="message error"><?= $_SESSION['error']; ?></div>
-        <?php unset($_SESSION['error']); ?>
-    <?php endif; ?>
+            <div class="p-8">
+                <?php if (isset($_SESSION['error'])): ?>
+                    <div class="mb-6 p-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg font-medium">
+                        <?= $_SESSION['error']; ?>
+                    </div>
+                    <?php unset($_SESSION['error']); ?>
+                <?php endif; ?>
 
-    <?php if (isset($_SESSION['success'])): ?>
-        <div class="message success"><?= $_SESSION['success']; ?></div>
-        <?php unset($_SESSION['success']); ?>
-    <?php endif; ?>
+                <?php if (isset($_SESSION['success'])): ?>
+                    <div class="mb-6 p-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg font-medium">
+                        <?= $_SESSION['success']; ?>
+                    </div>
+                    <?php unset($_SESSION['success']); ?>
+                <?php endif; ?>
 
-    <form action="RecipientAppointmentStore.php" method="POST">
-        <input type="hidden" name="action" value="create_recipient_appointment">
-        <input type="hidden" name="recipient_id" value="<?= $recipient_id; ?>">
+                <form action="RecipientAppointmentStore.php" method="POST" class="space-y-8">
+                    <input type="hidden" name="action" value="RecipientAppointmentStore">
 
-        <label>Appointment Type</label>
-        <select name="type" required>
-            <option value="">-- Select Appointment Type --</option>
-            <option value="consultation">Consultation</option>
-            <option value="release">Release</option>
-        </select>
+                    <!-- Recipient Selection -->
+                    <div>
+                        <h3 class="text-sm font-black text-green-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full"></span> Recipient
+                        </h3>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-green-800 mb-2">Select Recipient</label>
+                            <select name="recipient_id" required
+                                class="w-full px-4 py-3 border border-green-100 rounded-xl focus:ring-2 focus:ring-green-500 outline-none transition bg-white cursor-pointer">
+                                <option value="" disabled selected>-- Choose a Recipient --</option>
+                                <?php while ($rec = mysqli_fetch_assoc($recipients)): ?>
+                                    <option value="<?= $rec['recipient_id']; ?>">
+                                        <?= htmlspecialchars($rec['first_name'] . ' ' . $rec['last_name']); ?> — <?= htmlspecialchars($rec['email']); ?>
+                                    </option>
+                                <?php endwhile; ?>
+                            </select>
+                        </div>
+                    </div>
 
-        <label>Appointment Date & Time</label>
-        <input type="datetime-local" name="appointment_date" required>
+                    <!-- Appointment Details -->
+                    <div class="pt-6 border-t border-green-50">
+                        <h3 class="text-sm font-black text-green-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full"></span> Appointment Details
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase tracking-wider text-green-800 mb-2">Date & Time</label>
+                                <input type="datetime-local" name="appointment_date" required
+                                    class="w-full px-4 py-3 border border-green-100 rounded-xl focus:ring-2 focus:ring-green-500 outline-none transition bg-green-50/10">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase tracking-wider text-green-800 mb-2">Appointment Type</label>
+                                <select name="type" required
+                                    class="w-full px-4 py-3 border border-green-100 rounded-xl focus:ring-2 focus:ring-green-500 outline-none transition bg-white cursor-pointer">
+                                    <option value="consultation" selected>Consultation</option>
+                                    <option value="release">Release</option>
+                                    <option value="donation">Donation</option>
+                                    <option value="storage">Storage</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
 
-        <button type="submit">Create Appointment</button>
-    </form>
+                    <!-- Status -->
+                    <div class="pt-6 border-t border-green-50">
+                        <h3 class="text-sm font-black text-green-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full"></span> Status
+                        </h3>
+                        <div class="w-full md:w-1/2">
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-green-800 mb-2">Appointment Status</label>
+                            <select name="status" required
+                                class="w-full px-4 py-3 border border-green-100 rounded-xl focus:ring-2 focus:ring-green-500 outline-none transition bg-white cursor-pointer">
+                                <option value="scheduled" selected>Scheduled</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="pt-8 border-t border-green-50">
+                        <button type="submit"
+                            class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition duration-200 shadow-lg shadow-green-100 flex items-center justify-center gap-2">
+                            <span>Schedule Appointment</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?php include('../../../includes/footer.php'); ?>
